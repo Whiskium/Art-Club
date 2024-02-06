@@ -1,0 +1,69 @@
+name: Update Manga Library
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 4 1 * *'
+
+jobs:
+  check-download: # 检测更新并下载
+    runs-on: ubuntu-latest
+    outputs:
+      flag: ${{ steps.core.outputs.flag }}
+      pdfname: ${{ steps.core.outputs.pdfname }}
+      chapter: ${{ steps.core.outputs.chapter }}
+    env: 
+      SOURCE_URL: ${{ secrets.SOURCE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python # 配置 Python
+        uses: actions/setup-python@v5
+      - name: Install Modules # 配置依赖库
+        run: |
+          pip install pymupdf
+          pip install selenium
+      - name: Run Script # 运行脚本
+        id: core
+        run: |
+          sudo cp -p chromedriver /usr/bin/
+          chmod -R 777 /usr/bin/chromedriver
+          python main.py
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: ${{ steps.core.outputs.pdfname }}
+          path: ${{ steps.core.outputs.pdfname }}
+          retention-days: 0
+  send: # 获取最新话
+    needs: check-download
+    if: needs.check-download.outputs.flag == 'true' # 判断是否有更新
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4.1.2
+        with:
+          name: ${{ needs.check-download.outputs.pdfname }}
+      - name: Send mail # 将最新话邮件发至邮箱
+        uses: betterfor/action-send-mail@main
+        with:
+          server_address: smtp.qq.com
+          server_port: 587
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "[New!] この美術部には問題がある - 第${{ needs.check-download.outputs.chapter }}話"
+          to: ${{ secrets.MAIL_TARGET }}
+          from: ${{ secrets.MAIL_USERNAME }}
+          attachments: ${{ needs.check-download.outputs.pdfname }}
+      - name: Create Tag
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'refs/tags/${{ needs.check-download.outputs.chapter }}',
+                sha: context.sha
+            })
