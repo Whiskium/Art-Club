@@ -51,11 +51,12 @@ jobs:
         with:
           server_address: smtp.qq.com
           server_port: 587
+          from: クララ
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "[New!] この美術部には問題がある - 第${{ needs.check-download.outputs.chapter }}話"
           to: ${{ secrets.MAIL_TARGET }}
-          from: ${{ secrets.MAIL_USERNAME }}
+          subject: "[New!] この美術部には問題がある ${{ needs.check-download.outputs.chapter }} 作品目"
+          body: "この美術部には問題がある ${{ needs.check-download.outputs.chapter }} 作品目が更新されました。\n\n\n\n\n\nクララ"
           attachments: ${{ needs.check-download.outputs.pdfname }}
       - name: Create Tag
         uses: actions/github-script@v6
