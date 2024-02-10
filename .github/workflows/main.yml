@@ -1,18 +1,17 @@
 name: Update Manga Library
-
 on:
   push:
     branches: [main]
   schedule:
     - cron: '0 4 1 * *'
-
 jobs:
   check-download: # 检测更新并下载
     runs-on: ubuntu-latest
     outputs:
-      flag: ${{ steps.core.outputs.flag }}
-      pdfname: ${{ steps.core.outputs.pdfname }}
-      chapter: ${{ steps.core.outputs.chapter }}
+      UPDATE_FLAG: ${{ steps.core.outputs.UPDATE_FLAG }}
+      MANGA_CHAPTER: ${{ steps.core.outputs.MANGA_CHAPTER }}
+      MANGA_PDFNAME: ${{ steps.core.outputs.MANGA_PDFNAME }}
+      EMAIL_DATE: ${{ steps.core.outputs.EMAIL_DATE }}
     env: 
       SOURCE_URL: ${{ secrets.SOURCE_URL }}
     steps:
@@ -23,6 +22,7 @@ jobs:
       - name: Install Modules # 配置依赖库
         run: |
           pip install pymupdf
+          pip install pytz
           pip install selenium
       - name: Run Script # 运行脚本
         id: core
@@ -33,19 +33,19 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4.3.1
         with:
-          name: ${{ steps.core.outputs.pdfname }}
-          path: ${{ steps.core.outputs.pdfname }}
+          name: ${{ steps.core.outputs.MANGA_PDFNAME }}
+          path: ${{ steps.core.outputs.MANGA_PDFNAME }}
           retention-days: 0
   send: # 获取最新话
     needs: check-download
-    if: needs.check-download.outputs.flag == 'true' # 判断是否有更新
+    if: needs.check-download.outputs.UPDATE_FLAG == 'True' # 判断是否有更新
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4.1.2
         with:
-          name: ${{ needs.check-download.outputs.pdfname }}
+          name: ${{ needs.check-download.outputs.MANGA_PDFNAME }}
       - name: Send mail # 将最新话邮件发至邮箱
         uses: betterfor/action-send-mail@main
         with:
@@ -55,9 +55,9 @@ jobs:
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
           to: ${{ secrets.MAIL_TARGET }}
-          subject: "[New!] この美術部には問題がある ${{ needs.check-download.outputs.chapter }} 作品目"
-          body: "この美術部には問題がある ${{ needs.check-download.outputs.chapter }} 作品目が更新されました。\n\n\n\n\n\nクララ"
-          attachments: ${{ needs.check-download.outputs.pdfname }}
+          subject: "[New!] この美術部には問題がある ${{ needs.check-download.outputs.MANGA_CHAPTER }} 作品目"
+          body: "この美術部には問題がある ${{ needs.check-download.outputs.MANGA_CHAPTER }} 作品目が更新されました。\n\n\n\n\n\nクララ\n\n${{ needs.check-download.outputs.EMAIL_DATE }}"
+          attachments: ${{ needs.check-download.outputs.MANGA_PDFNAME }}
       - name: Create Tag
         uses: actions/github-script@v6
         with:
@@ -65,6 +65,6 @@ jobs:
             github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref: 'refs/tags/${{ needs.check-download.outputs.chapter }}',
+                ref: 'refs/tags/${{ needs.check-download.outputs.MANGA_CHAPTER }}',
                 sha: context.sha
             })

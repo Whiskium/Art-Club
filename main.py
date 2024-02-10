@@ -1,6 +1,9 @@
 # 引入依赖库
 
-import fitz, os, re, requests, time, zipfile
+import fitz, os, re, requests, zipfile
+
+from datetime import datetime
+from pytz import timezone
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -37,12 +40,12 @@ def download_file(url):
         if not filename and os.path.basename(file_requests):
             filename = os.path.basename(file_requests).split('?')[0]
         if not filename:
-            return time.time()
+            return datetime.now(timezone('Asia/Shanghai')).strftime('%Y%m%d%H%M%S')
         filename = unquote(filename.encode('unicode_escape').decode('utf-8').replace('\\x', '%'))[1:-1]
         return filename
     global FILE_NAME_ZIP
     FILE_NAME_ZIP = get_file_name(file_requests)
-    print('开始下载：' + FILE_NAME_ZIP)
+    print(f'开始下载：{ FILE_NAME_ZIP }')
     with open(FILE_NAME_ZIP, 'wb') as f:
         for chunk in file_requests.iter_content(chunk_size=1024):
             if chunk:
@@ -61,17 +64,17 @@ def zip2pdf(zip_path):
     imgs.reverse()
     with fitz.open() as doc:
         for i in range(len(imgs)):
-            img_path = 'temp/' + imgs[i]
+            img_path = f'temp/{ imgs[i] }'
             img_doc = fitz.open(img_path)
             pdfbytes = img_doc.convert_to_pdf()
             imgpdf = fitz.open("pdf", pdfbytes)
             doc.insert_pdf(imgpdf)
             os.remove(img_path)
         global FILE_NAME_PDF
-        FILE_NAME_PDF = zip_path[0:-4] + '.pdf'
+        FILE_NAME_PDF = f'{ zip_path[0:-4] }.pdf'
         doc.save(FILE_NAME_PDF)
     os.rmdir('temp')
-    print('转换完成：' + FILE_NAME_PDF)
+    print(f'转换完成：{ FILE_NAME_PDF }')
 
 # 获取更新情况
 
@@ -80,25 +83,27 @@ driver = webdriver.Chrome(options=option, service=serv) # 启动 Chrome 浏览�
 
 driver.get('https://comic-walker.com/contents/detail/KDCW_AM01000007010000_68/') # 跳转至 Comic Walker
 element = driver.find_element(By.CLASS_NAME, 'comicIndex-title').text # 获取最新话字符串
-new = int(re.findall(r'\d+', element)[0]) # 获取最新话
-os.system('echo "pdfname=None" >> $GITHUB_OUTPUT')
-if new > lib: # 如果有更新
-    print('检测到原作更新：第 ' + str(new) + ' 话')
-    driver.get(os.environ['SOURCE_URL'] + str(new)) # 跳转至资源站
+MANGA_CHAPTER = int(re.findall(r'\d+', element)[0]) # 获取最新话
+os.system('echo "MANGA_PDFNAME=None" >> $GITHUB_OUTPUT')
+if MANGA_CHAPTER > lib: # 如果有更新
+    print(f'检测到原作更新：第 { str(MANGA_CHAPTER) } 话')
+    driver.get(os.environ['SOURCE_URL'] + str(MANGA_CHAPTER)) # 跳转至资源站
     try: # 检查资源站是否更新
         print('正在前往资源站检测更新')
         url = driver.find_element(By.PARTIAL_LINK_TEXT, 'Download').get_attribute('href') # 获取下载链接
     except NoSuchElementException: # 资源站未更新
         print('资源站未更新')
-        os.system('echo "flag=false" >> $GITHUB_OUTPUT')
+        os.system('echo "UPDATE_FLAG=False" >> $GITHUB_OUTPUT')
     else: # 资源站已更新
         print('检测到资源更新')
         download_file(url)
         zip2pdf(FILE_NAME_ZIP)
         print('将文件发送至 Send 流程')
-        os.system('echo "flag=true" >> $GITHUB_OUTPUT')
-        os.system('echo "pdfname=%s" >> $GITHUB_OUTPUT' % FILE_NAME_PDF)
-        os.system('echo "chapter=%d" >> $GITHUB_OUTPUT' % new)
+        EMAIL_DATE = datetime.now(timezone('Asia/Shanghai')).strftime('%Y.%m.%d')
+        os.system('echo "UPDATE_FLAG=True" >> $GITHUB_OUTPUT')
+        os.system('echo "MANGA_CHAPTER=%d" >> $GITHUB_OUTPUT' % MANGA_CHAPTER)
+        os.system('echo "MANGA_PDFNAME=%s" >> $GITHUB_OUTPUT' % FILE_NAME_PDF)
+        os.system('echo "EMAIL_DATE=%d" >> $GITHUB_OUTPUT' % EMAIL_DATE)
 else: # 如果无更新
     print('无更新')
-    os.system('echo "flag=false" >> $GITHUB_OUTPUT')
+    os.system('echo "UPDATE_FLAG=False" >> $GITHUB_OUTPUT')
