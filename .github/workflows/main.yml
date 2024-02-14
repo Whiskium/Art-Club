@@ -5,7 +5,7 @@ on:
   schedule:
     - cron: '0 4 1 * *'
 jobs:
-  check-download: # 检测更新并下载
+  Search: # 检测更新并下载
     runs-on: ubuntu-latest
     outputs:
       UPDATE_FLAG: ${{ steps.core.outputs.UPDATE_FLAG }}
@@ -34,16 +34,16 @@ jobs:
           name: ${{ steps.core.outputs.MANGA_PDFNAME }}
           path: ${{ steps.core.outputs.MANGA_PDFNAME }}
           retention-days: 0
-  send: # 获取最新话
-    needs: check-download
-    if: needs.check-download.outputs.UPDATE_FLAG == 'True' # 判断是否有更新
+  Return: # 获取最新话
+    needs: Search
+    if: needs.Search.outputs.UPDATE_FLAG == 'True' # 判断是否有更新
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4.1.2
         with:
-          name: ${{ needs.check-download.outputs.MANGA_PDFNAME }}
+          name: ${{ needs.Search.outputs.MANGA_PDFNAME }}
       - name: Send mail # 将最新话邮件发至邮箱
         uses: betterfor/action-send-mail@main
         with:
@@ -53,9 +53,9 @@ jobs:
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
           to: ${{ secrets.MAIL_TARGET }}
-          subject: "[New!] この美術部には問題がある ${{ needs.check-download.outputs.MANGA_CHAPTER }} 作品目"
-          body: "この美術部には問題がある ${{ needs.check-download.outputs.MANGA_CHAPTER }} 作品目が更新されました。\n\n\n\n\n\nクララ\n\n${{ needs.check-download.outputs.EMAIL_DATE }}"
-          attachments: ${{ needs.check-download.outputs.MANGA_PDFNAME }}
+          subject: "[New!] この美術部には問題がある ${{ needs.Search.outputs.MANGA_CHAPTER }} 作品目"
+          body: "この美術部には問題がある ${{ needs.Search.outputs.MANGA_CHAPTER }} 作品目が更新されました。\n\n\n\n\n\nクララ\n\n${{ needs.Search.outputs.EMAIL_DATE }}"
+          attachments: ${{ needs.Search.outputs.MANGA_PDFNAME }}
       - name: Create Tag
         uses: actions/github-script@v6
         with:
@@ -63,6 +63,6 @@ jobs:
             github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref: 'refs/tags/${{ needs.check-download.outputs.MANGA_CHAPTER }}',
+                ref: 'refs/tags/${{ needs.Search.outputs.MANGA_CHAPTER }}',
                 sha: context.sha
             })
