@@ -9,20 +9,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import NoSuchElementException
+
 from urllib.parse import unquote
 
-# 配置 Selenium
-
-os.environ["webdriver.chrome.driver"] = '/usr/bin/chromedriver'
-option = webdriver.ChromeOptions()
-option.add_argument('--headless') # 启用无头模式
-option.add_argument('--incognito') # 启用无痕模式
-pref = {"profile.default_content_setting_values.geolocation": 2}
-option.add_experimental_option("prefs", pref) # 禁用地理位置
-serv = Service("/usr/bin/chromedriver")
-
-repo_tag_path = 'https://api.github.com/repos/' + os.environ.get('GITHUB_REPOSITORY') + '/tags'
-lib = int(requests.get(repo_tag_path).json()[0]["name"])
+from webdriver_manager.chrome import ChromeDriverManager
 
 # 定义下载函数
 
@@ -76,10 +66,22 @@ def zip2pdf(zip_path):
     os.rmdir('temp')
     print(f'转换完成：{ FILE_NAME_PDF }')
 
-# 获取更新情况
+# 配置 Selenium
 
-driver = webdriver.Chrome(options=option, service=serv) # 启动 Chrome 浏览器
+options = webdriver.ChromeOptions()
+options.add_argument('--headless') # 启用无头模式
+options.add_argument('--incognito') # 启用无痕模式
+pref = {"profile.default_content_setting_values.geolocation": 2}
+options.add_experimental_option("prefs", pref) # 禁用地理位置
+service = Service(ChromeDriverManager().install())
+
+RepoTagPath = f'https://api.github.com/repos/{ os.environ.get("GITHUB_REPOSITORY") }/tags'
+lib = int(requests.get(RepoTagPath).json()[0]["name"])
+
+driver = webdriver.Chrome(options, service) # 启动 Chrome 浏览器
 # driver = webdriver.Edge() # 启动 Edge 浏览器
+
+# 获取更新情况
 
 driver.get('https://comic-walker.com/contents/detail/KDCW_AM01000007010000_68/') # 跳转至 Comic Walker
 element = driver.find_element(By.CLASS_NAME, 'comicIndex-title').text # 获取最新话字符串

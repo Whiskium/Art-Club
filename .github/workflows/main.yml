@@ -24,12 +24,10 @@ jobs:
           pip install pymupdf
           pip install pytz
           pip install selenium
+          pip install webdriver-manager
       - name: Run Script # 运行脚本
         id: core
-        run: |
-          sudo cp -p chromedriver /usr/bin/
-          chmod -R 777 /usr/bin/chromedriver
-          python main.py
+        run: python main.py
       - name: Upload artifact
         uses: actions/upload-artifact@v4.3.1
         with:
